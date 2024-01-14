@@ -1,5 +1,7 @@
 module LaskaML
 
-# Write your package code here.
+using DifferentialEquations
+
+include("hh.jl")
 
 end
