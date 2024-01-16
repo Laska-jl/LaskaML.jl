@@ -26,6 +26,7 @@ end
 """
     struct HHChannel{T <: FunctionOrNothing,U <: NumberOrNothing, V <: Number}
         g::V
+        Vsteady::V
         α_m::T
         β_m::T
         p::U
@@ -54,6 +55,7 @@ The gating variables ``m`` and ``h`` are are given by `α_m`, `β_m`, `α_h` and
 """
 struct HHChannel{T <: FunctionOrNothing,U <: NumberOrNothing, V <: Number}
     g::V  # Max conductance
+    Vsteady::V # Steady-state voltage
     α_m::T # Alpha for gating variable m
     β_m::T # Beta for gating variable m
     p::U # Exponent of gating variable m
@@ -62,9 +64,14 @@ struct HHChannel{T <: FunctionOrNothing,U <: NumberOrNothing, V <: Number}
     q::U # Exponent for gating variable h
 end
 
+"""
+    function hhchannel(g, α_m=nothing, β_m=nothing, p=nothing, α_h=nothing, β_h=nothing, q=nothing)
 
-function hhchannel(g, α_m=nothing, β_m=nothing, p=nothing, α_h=nothing, β_h=nothing, q=nothing)
-    HHChannel(g, α_m, β_m, p, α_h, β_h, q)
+Outer constructor of the HHChannel. Mostly convenient for *leaky channels* and similar without gating variables.
+
+"""
+function hhchannel(g, Vsteady, α_m=nothing, β_m=nothing, p=nothing, α_h=nothing, β_h=nothing, q=nothing)
+    HHChannel(g, Vsteady, α_m, β_m, p, α_h, β_h, q)
 end
 
 end
