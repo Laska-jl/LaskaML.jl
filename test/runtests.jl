@@ -1,7 +1,7 @@
 using LaskaML
 using Test
 
-@testset "LaskaML.jl" begin
+@testset "HH channels and model" begin
     # Setup
     alpha_n(v) = (0.02 * (v - 25.0)) / (1.0 - exp((-1.0 * (v - 25.0)) / 9.0))
     beta_n(v) = (-0.002 * (v - 25.0)) / (1.0 - exp((v - 25.0) / 9.0))
@@ -17,24 +17,24 @@ using Test
         "K",
         35.0,
         -77.0,
-        alpha_n,
-        beta_n,
-        4,
-        alpha_h,
-        beta_h,
-        0
+        alpha_m=alpha_n,
+        beta_m=beta_n,
+        p=4,
+        alpha_h=alpha_h,
+        beta_h=beta_h,
+        q=0
     )
     # Example sodium channel
     chanNa = LaskaML.hh.hhchannel(
         "Na",
         40.0,
         55.0,
-        alpha_m,
-        beta_m,
-        3,
-        alpha_h,
-        beta_h,
-        1
+        alpha_m=alpha_m,
+        beta_m=beta_m,
+        p=3,
+        alpha_h=alpha_h,
+        beta_h=beta_h,
+        q=1
     )
     # Example leaky channel
     chanL = LaskaML.hh.hhchannel(
@@ -43,9 +43,24 @@ using Test
         -65.0
     )
 
-    @test chanK isa LaskaML.hh.ChannelType
-    @test chanNA isa LaskaML.hh.ChannelType
-    @test chanL isa LaskaML.hh.ChannelType
+    @test LaskaML.hh.beta_m(chanK) == beta_n
+    @test LaskaML.hh.alpha_m(chanK) == alpha_n
+    @test LaskaML.hh.alpha_h(chanK) == alpha_h
+    @test LaskaML.hh.beta_h(chanK) == beta_h
 
-    LaskaML.hh.parsechannel(chan1)
+    @test LaskaML.hh.alpha_m(chanL)() == 1
+    @test LaskaML.hh.beta_m(chanL)() == 1
+    @test LaskaML.hh.alpha_h(chanL)() == 1
+    @test LaskaML.hh.beta_h(chanL)() == 1
+
+    @test LaskaML.hh.parsechannel(chanK) == "(g_K*(m_K^4)*(v-E_K))"
+    @test LaskaML.hh.parsechannel(chanNa) == "(g_Na*(m_Na^3)*(h_Na^1)*(v-E_Na))"
+    @test LaskaML.hh.parsechannel(chanL) == "(g_L*(v-E_L))"
+
+    model = LaskaML.hh.HHModel(
+        [chanK]
+    )
+
+    model += chanNA
+
 end
