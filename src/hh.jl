@@ -3,6 +3,23 @@ module hh
 
 const FunctionOrNothing = Union{Function, Nothing}
 const NumberOrNothing = Union{Number, Nothing}
+const ChannelType = NamedTuple{
+        (
+        :id, :g, :Vsteady, :alpha_m, :beta_m, :p, :alpha_h, :beta_h, :q
+        ),
+        Tuple{
+            String,
+            U,
+            T,
+            FunctionOrNothing,
+            FunctionOrNothing,
+            NumberOrNothing,
+            FunctionOrNothing,
+            FunctionOrNothing,
+            NumberOrNothing
+            } where {T<:Number, U<:Number}
+    }
+
 
 """
     ab_generalized(V, p)
@@ -51,36 +68,54 @@ The gating variables ``m`` and ``h`` are are given by `α_m`, `β_m`, `α_h` and
 ```
 
 """
-struct HHChannel{T<:Number, U<:Number}
-    identifier::String
-    g::U  # Max conductance
-    Vsteady::Number # Ion specific reversal potential
-    α_m::FunctionOrNothing # Alpha for gating variable m
-    β_m::FunctionOrNothing # Beta for gating variable m
-    p::T # Exponent of gating variable m
-    α_h::FunctionOrNothing # Alpha for gating variable h
-    β_h::FunctionOrNothing # Beta for garing variable h
-    q::T # Exponent for gating variable h
+struct HHChannel
+    channel::ChannelType
 end
 
+    # identifier::String
+    # g::U  # Max conductance
+    # Vsteady::Number # Ion specific reversal potential
+    # α_m::FunctionOrNothing # Alpha for gating variable m
+    # β_m::FunctionOrNothing # Beta for gating variable m
+    # p::T # Exponent of gating variable m
+    # α_h::FunctionOrNothing # Alpha for gating variable h
+    # β_h::FunctionOrNothing # Beta for garing variable h
+    # q::T # Exponent for gating variable h
+
 """
-    function hhchannel(g, α_m=nothing, β_m=nothing, p=nothing, α_h=nothing, β_h=nothing, q=nothing)
+    function hhchannel(id, g, Vsteady, α_m=nothing, β_m=nothing, p=nothing, α_h=nothing, β_h=nothing, q=nothing)
 
 Outer constructor of the HHChannel. Mostly convenient for *leaky channels* and similar without gating variables.
 
 """
-function hhchannel(identifier, g, Vsteady, α_m=nothing, β_m=nothing, p=nothing, α_h=nothing, β_h=nothing, q=nothing)
-    HHChannel(identifier, g, Vsteady, α_m, β_m, p, α_h, β_h, q)
+function hhchannel(id,
+                   g,
+                   Vsteady,
+                   α_m=nothing,
+                   β_m=nothing,
+                   p=nothing,
+                   α_h=nothing,
+                   β_h=nothing,
+                   q=nothing)
+    HHChannel((id=id,
+               g=g,
+               Vsteady=Vsteady,
+               alpha_m=α_m,
+               beta_m=β_m,
+               p=p,
+               alpha_h=α_h,
+               beta_h=β_h,
+               q=q))
 end
 
-id(channel::HHChannel) = channel.identifier
-conductance(channel::HHChannel) = channel.g
-alpha_m(channel::HHChannel) = channel.α_m
-beta_m(channel::HHChannel) = channel.β_m
-m_exponent(channel::HHChannel) = channel.p
-alpha_h(channel::HHChannel) = channel.α_h
-beta_h(channel::HHChannel) = channel.β_h
-h_exponent(channel::HHChannel) = channel.q
+id(channel::HHChannel) = channel.channel[1]
+conductance(channel::HHChannel) = channel.channel[2]
+alpha_m(channel::HHChannel) = channel.channel[3]
+beta_m(channel::HHChannel) = channel.channel[4]
+m_exponent(channel::HHChannel) = channel.channel[5]
+alpha_h(channel::HHChannel) = channel.channel[6]
+beta_h(channel::HHChannel) = channel.channel[7]
+h_exponent(channel::HHChannel) = channel.channel[8]
 
 
 # Struct for holding an entire model
