@@ -95,7 +95,7 @@ end
     ) where T<:Number
 
 
-Outer constructor of [`LaskaML.hh.HHChannel`](@ref).
+Outer constructor of [`HHChannel`](@ref).
 If not specified, exponents of ``m`` and ``h`` will be 0 while unspecified α and β functions will be initialized as `() -> oneunit(T)`.
 
 """
