@@ -21,7 +21,7 @@ const NumberOrNothing = T where T<:Union{Number, Nothing}
 #     }
 
 
-"""
+@doc """
     ab_generalized(V, p)
 
 The generalized form of α and β.
@@ -81,7 +81,7 @@ struct HHChannel{T <: Number, U <: Number}
     q::U # Exponent for gating variable h
 end
 
-"""
+@doc """
     hhchannel(
     id,
     g::T,
@@ -123,7 +123,7 @@ end
 
 # Interface for HHChannel
 
-"""
+@doc """
     id(channel::HHChannel)
 
 Get the identifier of a `HHChannel`.
@@ -139,7 +139,7 @@ Get the maximum conductance, ``\bar{g}``, of a HHChannel.
 """
 conductance(channel::HHChannel) = channel.g
 
-"""
+@doc """
     alpha_m(channel::HHChannel) = channel.α_m
 
 Get the function for ``\alpha_m`` bound to a HHChannel.
@@ -147,7 +147,7 @@ Get the function for ``\alpha_m`` bound to a HHChannel.
 """
 alpha_m(channel::HHChannel) = channel.alpha_m
 
-"""
+@doc """
     beta_m(channel::HHChannel)
 
 Get the function for ``\beta_m`` bound to a HHChannel.
@@ -155,7 +155,7 @@ Get the function for ``\beta_m`` bound to a HHChannel.
 """
 beta_m(channel::HHChannel) = channel.beta_m
 
-"""
+@doc """
     m_exponent(channel::HHChannel)
 
 Get the exponent of ``m`` in a HHChannel
@@ -163,7 +163,7 @@ Get the exponent of ``m`` in a HHChannel
 """
 m_exponent(channel::HHChannel) = channel.p
 
-"""
+@doc """
     alpha_h(channel::HHChannel)
 
 Get the function for ``\alpha_h`` bound to a HHChannel.
@@ -171,7 +171,7 @@ Get the function for ``\alpha_h`` bound to a HHChannel.
 """
 alpha_h(channel::HHChannel) = channel.alpha_h
 
-"""
+@doc """
     beta_h(channel::HHChannel)
 
 Get the function for ``\beta_h`` bound to a HHChannel.
@@ -179,7 +179,7 @@ Get the function for ``\beta_h`` bound to a HHChannel.
 """
 beta_h(channel::HHChannel) = channel.beta_h
 
-"""
+@doc """
     h_exponent(channel::HHChannel)
 
 Get the exponent of ``h`` in a HHChannel.
@@ -200,7 +200,7 @@ function buildterm(variable::String, id::String, exponent::T) where T<:Number
 	iszero(exponent) ? "" : "($(variable)_$(id)^$(exponent))*"
 end
 
-"""
+@doc """
     parsechannel(channel::HHChannel)
 
 Parse a `HHChannel` struct into an expression in the form of a `String` suitable for use in DifferentialEquations.
@@ -234,7 +234,7 @@ end
 
 # Struct for holding an entire model
 
-"""
+@doc """
     struct HHModel{T<:Number, U<:Number}
         channels::Vector{HHChannel{T, U}}
 
