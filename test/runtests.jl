@@ -12,7 +12,7 @@ using Test
     alpha_h(v) = 0.25 * exp((-1.0 * (v + 90.0)) / 12.0)
     beta_h(v) = (0.25 * exp((v + 62.0) / 6.0)) / exp((v + 90.0) / 12.0)
 
-    # Examnple potassium channel
+    # Example potassium channel
     chanK = LaskaML.hh.hhchannel(
         "K",
         35.0,
@@ -20,8 +20,8 @@ using Test
         alpha_m=alpha_n,
         beta_m=beta_n,
         p=4,
-        alpha_h=alpha_h,
-        beta_h=beta_h,
+        alpha_h=nothing,
+        beta_h=nothing,
         q=0
     )
     # Example sodium channel
@@ -45,22 +45,30 @@ using Test
 
     @test LaskaML.hh.beta_m(chanK) == beta_n
     @test LaskaML.hh.alpha_m(chanK) == alpha_n
-    @test LaskaML.hh.alpha_h(chanK) == alpha_h
-    @test LaskaML.hh.beta_h(chanK) == beta_h
+    @test isnothing(LaskaML.hh.alpha_h(chanK))
+    @test isnothing(LaskaML.hh.beta_h(chanK))
+    @test isnothing(LaskaML.hh.h_inf(chanK))
+    @test LaskaML.hh.m_inf(chanK)(-32.34) == alpha_n(-32.34) / (alpha_n(-32.34) + beta_n(-32.34))
 
-    @test LaskaML.hh.alpha_m(chanL)() == 1
-    @test LaskaML.hh.beta_m(chanL)() == 1
-    @test LaskaML.hh.alpha_h(chanL)() == 1
-    @test LaskaML.hh.beta_h(chanL)() == 1
+    @test isnothing(LaskaML.hh.alpha_m(chanL))
+    @test isnothing(LaskaML.hh.beta_m(chanL))
+    @test isnothing(LaskaML.hh.alpha_h(chanL))
+    @test isnothing(LaskaML.hh.beta_h(chanL))
+    @test isnothing(LaskaML.hh.h_inf(chanL))
+    @test isnothing(LaskaML.hh.m_inf(chanL))
 
     @test LaskaML.hh.parsechannel(chanK) == "(g_K*(m_K^4)*(v-E_K))"
-    @test LaskaML.hh.parsechannel(chanNa) == "(g_Na*(m_Na^3)*(h_Na^1)*(v-E_Na))"
+    @test LaskaML.hh.parsechannel(chanNa) == "(g_Na*(m_Na^3)*h_Na*(v-E_Na))"
     @test LaskaML.hh.parsechannel(chanL) == "(g_L*(v-E_L))"
 
     model = LaskaML.hh.HHModel(
-        [chanK]
+        -60.0,
+        0.0,
+        1.0,
+        chanK, chanNa, chanL
     )
 
-    model += chanNA
+
+    model + chanNa + chanL
 
 end

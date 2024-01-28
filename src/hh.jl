@@ -41,22 +41,24 @@ function ab_generalized(V, p)
 end
 
 @doc raw"""
-    struct HHChannel{T <: Number, U <: Number}
+    struct HHChannel{G<:Number, V<:Number, P<:Number, Q<:Number}
         id::String
-        g::T
-        Vsteady::T
-        alpha_m::Function
-        beta_m::Function
-        p::U
-        alpha_h::Function
-        beta_h::Function
-        q::U
+        g::G  # Max conductance
+        Vrev::V # Ion specific reversal potential
+        alpha_m::Union{Function, Nothing} # Alpha for gating variable m
+        beta_m::Union{Function, Nothing} # Beta for gating variable m
+        p::P # Exponent of gating variable m
+        alpha_h::Union{Function, Nothing} # Alpha for gating variable h
+        beta_h::Union{Function, Nothing} # Beta for garing variable h
+        q::Q # Exponent for gating variable h
+        m_inf::Union{Function, Nothing}
+        h_inf::Union{Function, Nothing}
     end
 
 General struct for a channel in the Hodgkin-Huxley model in the form:
 
 ```math
-I_x = \bar{g}_xm^p_xh^q_x(V_mV_x)
+I_x = \bar{g}_xm^p_xh^q_x(V_m-V_x)
 ```
 
 The gating variables ``m`` and ``h`` are are given by `α_m`, `β_m`, `α_h` and `β_h` respectively in the following wa
@@ -69,16 +71,18 @@ The gating variables ``m`` and ``h`` are are given by `α_m`, `β_m`, `α_h` and
 ```
 
 """
-struct HHChannel{T <: Number, U <: Number}
+struct HHChannel{G<:Number, V<:Number, P<:Number, Q<:Number}
     id::String
-    g::T  # Max conductance
-    Vsteady::T # Ion specific reversal potential
-    alpha_m::Function # Alpha for gating variable m
-    beta_m::Function # Beta for gating variable m
-    p::U # Exponent of gating variable m
-    alpha_h::Function # Alpha for gating variable h
-    beta_h::Function # Beta for garing variable h
-    q::U # Exponent for gating variable h
+    g::G  # Max conductance
+    Vrev::V # Ion specific reversal potential
+    alpha_m::Union{Function, Nothing} # Alpha for gating variable m
+    beta_m::Union{Function, Nothing} # Beta for gating variable m
+    p::P # Exponent of gating variable m
+    alpha_h::Union{Function, Nothing} # Alpha for gating variable h
+    beta_h::Union{Function, Nothing} # Beta for garing variable h
+    q::Q # Exponent for gating variable h
+    m_inf::Union{Function, Nothing}
+    h_inf::Union{Function, Nothing}
 end
 
 @doc """
@@ -96,33 +100,61 @@ end
 
 
 Outer constructor of [`HHChannel`](@ref).
-If not specified, exponents of ``m`` and ``h`` will be 0 while unspecified α and β functions will be initialized as `() -> oneunit(T)`.
+If not specified, exponents of ``m`` and ``h`` will be 0 while unspecified α and β functions will be initialized as `nothing`.
 
 """
 function hhchannel(
     id,
-    g::T,
-    Vsteady::T;
-    alpha_m=() -> oneunit(T),
-    beta_m=() -> oneunit(T),
-    p=zero(T),
-    alpha_h=() -> oneunit(T),
-    beta_h=() -> oneunit(T),
-    q=zero(T)
-    ) where T<:Number
+    g::G,
+    Vrev::V;
+    alpha_m=nothing,
+    beta_m=nothing,
+    p::P=zero(Int),
+    alpha_h=nothing,
+    beta_h=nothing,
+    q::Q=zero(Int)
+    ) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+    # m steady state
+    if isnothing(alpha_m) && isnothing(beta_m)
+        m_inf = nothing
+    else
+	    m_inf = (V) -> alpha_m(V) / (alpha_m(V) + beta_m(V))
+    end
+    # h steady state
+    if isnothing(alpha_h) && isnothing(beta_h)
+        h_inf = nothing
+    else
+	    h_inf = (V) -> alpha_h(V) / (alpha_h(V) + beta_h(V))
+    end
     HHChannel(id,
               g,
-              Vsteady,
+              Vrev,
               alpha_m,
               beta_m,
               p,
               alpha_h,
               beta_h,
-              q)
+              q,
+              m_inf,
+              h_inf)
 end
 
 # Interface for HHChannel
+Base.convert(::Type{HHChannel{G, V, P, Q}}, x::HHChannel{G, V, P, Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number} = x
 
+function Base.convert(::Type{HHChannel{G,V,P,Q}}, x::HHChannel) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+    HHChannel(
+        id(x),
+        G(conductance(x)),
+        V(Vrev(x)),
+        alpha_m(x),
+        beta_m(x),
+        P(m_exponent(x)),
+        alpha_h,
+        beta_h,
+        Q(h_exponent(x))
+    )
+end
 @doc """
     id(channel::HHChannel)
 
@@ -138,6 +170,14 @@ Get the maximum conductance, ``\bar{g}``, of a HHChannel.
 
 """
 conductance(channel::HHChannel) = channel.g
+
+@doc """
+     Vrev(channel::HHChannel) = channel.Vsteady
+
+Get the reversal potential.
+
+"""
+Vrev(channel::HHChannel) = channel.Vrev
 
 @doc """
     alpha_m(channel::HHChannel) = channel.α_m
@@ -188,6 +228,24 @@ Get the exponent of ``h`` in a HHChannel.
 h_exponent(channel::HHChannel) = channel.q
 
 
+"""
+    m_inf(channel::HHChannel)
+
+Get the function for steady state of ``m``.
+
+"""
+m_inf(channel::HHChannel) = channel.m_inf
+
+
+"""
+    h_inf(channel::HHChannel)
+
+Get the function for steady state of ``h``.
+
+"""
+h_inf(channel::HHChannel) = channel.h_inf
+
+
 # Parse a single channel
 
 @doc raw"""
@@ -197,7 +255,13 @@ Build a `String` representation of ``m^p`` or ``h^q``. If the exponent of either
 
 """
 function buildterm(variable::String, id::String, exponent::T) where T<:Number
-	iszero(exponent) ? "" : "($(variable)_$(id)^$(exponent))*"
+    if iszero(exponent)
+        return ""
+    elseif isone(exponent)
+        return "$(variable)_$(id)*"
+    else
+        return "($(variable)_$(id)^$(exponent))*"
+    end
 end
 
 @doc """
@@ -229,17 +293,20 @@ function parsechannel(channel::HHChannel)
     i = hh.id(channel)
     m_exp = buildterm("m", i, m_exponent(channel))
     h_exp = buildterm("h", i, h_exponent(channel))
-    "(g_$(i)*$(m_exp)$(h_exp)(v-E_$(id(channel))))"
+    "(g_$(i)*$(m_exp)$(h_exp)(V-E_$(id(channel))))"
 end
 
 # Struct for holding an entire model
 
 @doc """
-    struct HHModel{T<:Number, U<:Number}
-        channels::Vector{HHChannel{T, U}}
+    struct HHModel{G<:Number, V<:Number, P<:Number, Q<:Number}
+        V_0::G
+        I_0::G
+        C_0::G
+        channels::Vector{HHChannel{G,V,P,Q}}
 
-        function HHModel(channels::HHChannel{T,U}...) where {T<:Number, U<:Number}
-	           new{T, U}([channels...])
+        function HHModel(V_0, I_0, C_0, channels::HHChannel{G, V, P, Q}...) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+	        new{G,V,P,Q}(V_0, I_0, C_0, [channels...])
         end
     end
 
@@ -251,40 +318,212 @@ The struct can be initialized by calling its inner constructor and passing it th
 For convenience, the struct may also be initialized by "adding" `HHChannels` together using the `+` operator. The `+` operator may also be used to add `HHChannel`s to an existing `HHModel`
 
 """
-struct HHModel{T<:Number, U<:Number}
-    channels::Vector{HHChannel{T, U}}
+struct HHModel{G<:Number, V<:Number, P<:Number, Q<:Number}
+    V_0::G
+    I_0::G
+    C_0::G
+    channels::Vector{HHChannel{G,V,P,Q}}
 
-    function HHModel(channels::HHChannel{T,U}...) where {T<:Number, U<:Number}
-	      new{T, U}([channels...])
+    function HHModel(V_0, I_0, C_0, channels::HHChannel{G, V, P, Q}...) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+	      new{G,V,P,Q}(V_0, I_0, C_0, [channels...])
     end
 end
 
 
 channels(model::HHModel) = model.channels
+V0(model::HHModel) = model.V_0
+I0(model::HHModel) = model.I_0
+C0(model::HHModel) = model.C_0
 
 # Interface functions for HHModel
 
+# Show
+
+function Base.show(io::IO, ::MIME"text/plain", m::HHModel)
+	print(
+        io,
+        "V_0: $(V0(m))\nI_O: $(I0(m))\nC_0: $(C0(m))\n$(join([repr(ch) for ch in channels(m)], "\n"))"
+    )
+end
+
+function Base.show(io::IO, m::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+	print(
+        io,
+        join([repr(ch) for ch in channels(m)], "\n")
+    )
+end
+
 # Basics
 
-Base.length(X::HHModel) = length(channels(X))
+@inline Base.length(X::HHModel) = length(channels(X))
 
 # Indexing
-function Base.getindex(X::HHModel, i::Int)
+@inline function Base.getindex(X::HHModel, i::Int)
 	  1 <= i <= length(X) || throw(BoundsError(X, i))
     return channels(X)[i]
 end
-function Base.setindex!(X::HHModel, i::Int, v::HHChannel)
+@inline function Base.setindex!(X::HHModel, i::Int, v::HHChannel)
 	  channels(X)[i] = v
 end
-Base.firstindex(X::HHModel) = 1
-Base.lastindex(X::HHModel) = length(X)
+@inline Base.firstindex(X::HHModel) = 1
+@inline Base.lastindex(X::HHModel) = length(X)
 
 # Adding
-Base.:+(x::HHModel, y::HHChannel...) = for c in y push!(channels(x), c) end
-function Base.:+(x::HHChannel...)
-    HHModel(x...)
+@inline Base.:+(x::HHModel, y::HHChannel...) = for c in y push!(channels(x), c) end
+
+
+@doc raw"""
+    buildexpression(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+
+Build a string representation of the expression:
+```math
+I = \bar{g}_xm_x^ph_x^q(V_M-V_x) + \bar{g}_ym_y^ph_y^q(V_M-V_y) + \bar{g}_zm_z^ph_z^q(V_M-V_z)...
+```
+
+Using all [`HHChannel`](@ref)s in the `model`. If the exponents ``p`` or ``q`` of a `HHChannel` is zero their respective term (``m`` or ``h``) will not be included.
+
+# Examples
+
+```julia-repl
+julia> # Example potassium channel
+           chanK = LaskaML.hh.hhchannel(
+               "K",
+               35.0,
+               -77.0,
+               alpha_m=alpha_n,
+               beta_m=beta_n,
+               p=4,
+               alpha_h=alpha_h,
+               beta_h=beta_h,
+               q=0
+           )
+LaskaML.hh.HHChannel{Float64, Float64, Int64, Int64}("K", 35.0, -77.0, alpha_n, beta_n, 4, alpha_h, beta_h, 0)
+
+julia> # Example sodium channel
+           chanNa = LaskaML.hh.hhchannel(
+               "Na",
+               40.0,
+               55.0,
+               alpha_m=alpha_m,
+               beta_m=beta_m,
+               p=3,
+               alpha_h=alpha_h,
+               beta_h=beta_h,
+               q=1
+           )
+LaskaML.hh.HHChannel{Float64, Float64, Int64, Int64}("Na", 40.0, 55.0, alpha_m, beta_m, 3, alpha_h, beta_h, 1)
+
+julia> chanL = LaskaML.hh.hhchannel(
+               "L",
+               0.3,
+               -65.0
+           )
+LaskaML.hh.HHChannel{Float64, Float64, Int64, Int64}("L", 0.3, -65.0, nothing, nothing, 0, nothing, nothing, 0)
+
+
+julia> model = chanNa + chanK + chanL # Combine channels into a HHModel
+LaskaML.hh.HHModel{Float64, Float64, Int64, Int64}(LaskaML.hh.HHChannel{Float64, Float64, Int64, Int64}[LaskaML.hh.HHChannel{Float64, Float64, Int64, Int64}("Na", 40.0, 55.0, alpha_m, beta_m, 3, alpha_h, beta_h, 1), LaskaML.hh.HHChannel{Float64, Float64, Int64, Int64}("K", 35.0, -77.0, alpha_n, beta_n, 4, alpha_h, beta_h, 0), LaskaML.hh.HHChannel{Float64, Float64, Int64, Int64}("L", 0.3, -65.0, nothing, nothing, 0, nothing, nothing, 0)])
+nel{Float64, Float64, Int64, Int64}("L", 0.3, -65.0, nothing, nothing, 0, nothing, nothing, 0)
+
+julia> LaskaML.hh.buildexpression(model) # Build String expression from model.
+"(g_Na*(m_Na^3)*h_Na*(v-E_Na))+(g_K*(m_K^4)*(v-E_K))+(g_L*(v-E_L))"
+```
+
+"""
+function buildexpression(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+    res = Vector{String}(undef, length(model))
+    for (n,ch) in enumerate(channels(model))
+	      res[n] = parsechannel(ch)
+    end
+    "(" * join(res, "+") * ")" * " / C"
+end
+
+@doc raw"""
+     function dmdv(channel::HHChannel)
+
+Returns a function giving dm/dv according to:
+
+```math
+\frac{dm}{dv} = \alpha(v)(1.0 - m) - \beta(v)m
+```
+
+"""
+function dmdv(channel::HHChannel)
+    am = alpha_m(channel)
+    bm = beta_m(channel)
+    function (V::T, m::T) where {T}
+        (am(V) * (oneunit(T) - m)) - (bm(V) * m)
+    end
+end
+
+@doc raw"""
+     function dhdv(channel::HHChannel)
+
+Returns a function giving dh/dv according to:
+
+```math
+\frac{dh}{dv} = \alpha(v)(1.0 - h) - \beta(v)h
+```
+
+"""
+function dhdv(channel::HHChannel)
+    ah = alpha_h(channel)
+    bh = beta_h(channel)
+    function (V::T, h::T) where {T}
+        (ah(V) * (oneunit(T) - h)) - (bh(V) * h)
+    end
+end
+
+function buildd0(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+    u0 = Vector{promote_type(G,V,P,Q)}(undef, 0)
+    du = Vector{Function}(undef, 0)
+    v = V0(model)
+    push!(u0, v)
+    textrepr = "V"
+    for ch in channels(model)
+        minf = m_inf(ch)
+        if !isnothing(minf)
+            push!(u0, minf(v))
+            textrepr = textrepr * ", m_" * id(ch)
+            push!(du, dmdv(ch))
+        end
+        hinf = h_inf(ch)
+        if !isnothing(hinf)
+            push!(u0, hinf(v))
+            textrepr = textrepr * ", h_" * id(ch)
+            push!(du, dhdv(ch))
+        end
+    end
+    return du, u0, textrepr
+end
+
+function buildparams(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+    outg = Vector{G}(undef, length(model))
+    oute = Vector{G}(undef, length(model))
+    outstrg = Vector{String}(undef, length(model))
+    outstre = Vector{String}(undef, length(model))
+    for (i, ch) in enumerate(channels(model))
+        outg[i] = conductance(ch)
+        outstrg[i] = "g_" * id(ch)
+        oute[i] = Vrev(ch)
+        outstre[i] = "E_" * id(ch)
+    end
+    return vcat(outg, oute, [C0(model), I0(model)]), join(vcat(outstrg, outstre, ["C", "I"]), ", ")
 end
 
 
+function buildmodel(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+	p, pstr = buildparams(model)
+    d0, d0str = buildd0(model)
+
+    func =
+        "function HH!(du, u, p, t)
+             $(pstr) = p
+             $(d0str) = u
+
+             du[1] = $(buildexpression(model))
+         end"
+    return Meta.parse(func)
 end
 
+end
