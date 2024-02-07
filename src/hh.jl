@@ -293,7 +293,7 @@ function parsechannel(channel::HHChannel)
     i = hh.id(channel)
     m_exp = buildterm("m", i, m_exponent(channel))
     h_exp = buildterm("h", i, h_exponent(channel))
-    "(g_$(i)*$(m_exp)$(h_exp)(V-E_$(id(channel))))"
+    "-((g_$(i)*$(m_exp)$(h_exp)(V-E_$(id(channel)))))"
 end
 
 # Struct for holding an entire model
@@ -435,7 +435,7 @@ function buildexpression(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P
     for (n,ch) in enumerate(channels(model))
 	      res[n] = parsechannel(ch)
     end
-    "(" * join(res, "+") * ")" * " / C"
+    "(" * join(res) * " + I)" * " / C"
 end
 
 @doc raw"""
@@ -451,7 +451,8 @@ Returns a function giving dm/dv according to:
 function dmdv(channel::HHChannel)
     am = alpha_m(channel)
     bm = beta_m(channel)
-    function (V::T, m::T) where {T}
+    function (in::Tuple{T, T}) where {T}
+        V, m = in
         (am(V) * (oneunit(T) - m)) - (bm(V) * m)
     end
 end
@@ -469,7 +470,8 @@ Returns a function giving dh/dv according to:
 function dhdv(channel::HHChannel)
     ah = alpha_h(channel)
     bh = beta_h(channel)
-    function (V::T, h::T) where {T}
+    function (in::Tuple{T, T}) where {T}
+        V, h = in
         (ah(V) * (oneunit(T) - h)) - (bh(V) * h)
     end
 end
@@ -479,18 +481,18 @@ function buildd0(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number
     du = Vector{Function}(undef, 0)
     v = V0(model)
     push!(u0, v)
-    textrepr = "V"
+    textrepr = ["V"]
     for ch in channels(model)
         minf = m_inf(ch)
         if !isnothing(minf)
             push!(u0, minf(v))
-            textrepr = textrepr * ", m_" * id(ch)
+            push!(textrepr, "m_" * id(ch))
             push!(du, dmdv(ch))
         end
         hinf = h_inf(ch)
         if !isnothing(hinf)
             push!(u0, hinf(v))
-            textrepr = textrepr * ", h_" * id(ch)
+            push!(textrepr, "h_" * id(ch))
             push!(du, dhdv(ch))
         end
     end
@@ -508,22 +510,29 @@ function buildparams(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Nu
         oute[i] = Vrev(ch)
         outstre[i] = "E_" * id(ch)
     end
-    return vcat(outg, oute, [C0(model), I0(model)]), join(vcat(outstrg, outstre, ["C", "I"]), ", ")
+    return vcat(outg, oute, [C0(model), I0(model)]), vcat(outstrg, outstre, "C", "I")
 end
 
 
 function buildmodel(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
-	p, pstr = buildparams(model)
-    d0, d0str = buildd0(model)
+	par, ptxt = buildparams(model)
+    funcs, d0, d0txt = buildd0(model)
+    ps = Meta.parse(join(ptxt, ", "))
+    d0s = Meta.parse(join(d0txt, ", "))
 
-    func =
-        "function HH!(du, u, p, t)
-             $(pstr) = p
-             $(d0str) = u
-
-             du[1] = $(buildexpression(model))
-         end"
-    return Meta.parse(func)
+    exprs = Vector{Expr}(undef, length(funcs)+3)
+    exprs[1] = :($ps = p)
+    exprs[2] = :($d0s = u)
+    exprs[3] = :(du[1] = $(Meta.parse(buildexpression(model))))
+    for n in 1:length(funcs)
+        ind = n + 3
+        exprs[ind] = :(du[$(n+1)] = $(funcs[n])($:($(Meta.parse(d0txt[1])), $(Meta.parse(d0txt[n+1])))))
+    end
+    out = :()
+    out.head = :function
+    out.args = [:((du, u, p, t)), Expr(:block, exprs...)]
+    return eval(out), d0, par
 end
+
 
 end
