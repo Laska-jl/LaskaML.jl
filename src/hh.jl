@@ -476,9 +476,20 @@ function dhdv(channel::HHChannel)
     end
 end
 
+"""
+    buildd0(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+
+Construct the initial conditions as well as the functions for ``frac{dm}{dv}`` and/or ``frac{dh}{dv}`` for each channel.
+
+**Returns** a `Tuple` consisting of:
+
+- A `Vector` of the functions mentioned above.
+- A `Vector` of the initial conditions.
+- A `Vector` containing `String`s identifying the functions.
+"""
 function buildd0(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
     u0 = Vector{promote_type(G,V,P,Q)}(undef, 0)
-    du = Vector{Function}(undef, 0)
+    d = Vector{Function}(undef, 0)
     v = V0(model)
     push!(u0, v)
     textrepr = ["V"]
@@ -487,18 +498,23 @@ function buildd0(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number
         if !isnothing(minf)
             push!(u0, minf(v))
             push!(textrepr, "m_" * id(ch))
-            push!(du, dmdv(ch))
+            push!(d, dmdv(ch))
         end
         hinf = h_inf(ch)
         if !isnothing(hinf)
             push!(u0, hinf(v))
             push!(textrepr, "h_" * id(ch))
-            push!(du, dhdv(ch))
+            push!(d, dhdv(ch))
         end
     end
-    return du, u0, textrepr
+    return d, u0, textrepr
 end
 
+"""
+    buildparams(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+
+TBW
+"""
 function buildparams(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
     outg = Vector{G}(undef, length(model))
     oute = Vector{G}(undef, length(model))
@@ -514,6 +530,11 @@ function buildparams(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Nu
 end
 
 
+"""
+    buildmodel(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
+
+TBW
+"""
 function buildmodel(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
 	par, ptxt = buildparams(model)
     funcs, d0, d0txt = buildd0(model)
