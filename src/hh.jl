@@ -513,7 +513,7 @@ end
 """
     buildparams(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
 
-TBW
+returns the initial parameters of the `model` as well as a `Vector{String}` of their identifiers.
 """
 function buildparams(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
     outg = Vector{G}(undef, length(model))
@@ -533,7 +533,11 @@ end
 """
     buildmodel(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
 
-TBW
+Returns a `Tuple` containing all parts necessary for constructing an `ODEProblem` of the `model` except the time span:
+
+- A mutating function accepting the parameters `du, u, p, t`
+- The initial conditions of the model
+- The parameters of the model
 """
 function buildmodel(model::HHModel{G,V,P,Q}) where {G<:Number, V<:Number, P<:Number, Q<:Number}
 	par, ptxt = buildparams(model)
