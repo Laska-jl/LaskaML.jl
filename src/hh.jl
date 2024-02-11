@@ -1,6 +1,5 @@
 
 module hh
-
 const FunctionOrNothing = T where T<:Union{Function, Nothing}
 const NumberOrNothing = T where T<:Union{Number, Nothing}
 # const ChannelType = NamedTuple{
@@ -35,7 +34,7 @@ end
 ```
 
 """
-function ab_generalized(V, p)
+function ab_generalized(V::T, p::Vector{T}) where {T}
     A, B, C, D, F, H = p
     (A + B * V) / (C + H * exp((V + D) / F))
 end
@@ -100,7 +99,7 @@ end
 
 
 Outer constructor of [`HHChannel`](@ref).
-If not specified, exponents of ``m`` and ``h`` will be 0 while unspecified α and β functions will be initialized as `nothing`.
+If not specified, exponents of ``m`` and ``h`` will be 0 while unspecified α and β functions will be initialized as `() -> oneunit(T)`.
 
 """
 function hhchannel(
@@ -179,7 +178,7 @@ Get the reversal potential.
 """
 Vrev(channel::HHChannel) = channel.Vrev
 
-@doc """
+@doc raw"""
     alpha_m(channel::HHChannel) = channel.α_m
 
 Get the function for ``\alpha_m`` bound to a HHChannel.
@@ -187,7 +186,7 @@ Get the function for ``\alpha_m`` bound to a HHChannel.
 """
 alpha_m(channel::HHChannel) = channel.alpha_m
 
-@doc """
+@doc raw"""
     beta_m(channel::HHChannel)
 
 Get the function for ``\beta_m`` bound to a HHChannel.
@@ -195,7 +194,7 @@ Get the function for ``\beta_m`` bound to a HHChannel.
 """
 beta_m(channel::HHChannel) = channel.beta_m
 
-@doc """
+@doc raw"""
     m_exponent(channel::HHChannel)
 
 Get the exponent of ``m`` in a HHChannel
@@ -203,7 +202,7 @@ Get the exponent of ``m`` in a HHChannel
 """
 m_exponent(channel::HHChannel) = channel.p
 
-@doc """
+@doc raw"""
     alpha_h(channel::HHChannel)
 
 Get the function for ``\alpha_h`` bound to a HHChannel.
@@ -211,7 +210,7 @@ Get the function for ``\alpha_h`` bound to a HHChannel.
 """
 alpha_h(channel::HHChannel) = channel.alpha_h
 
-@doc """
+@doc raw"""
     beta_h(channel::HHChannel)
 
 Get the function for ``\beta_h`` bound to a HHChannel.
@@ -219,7 +218,7 @@ Get the function for ``\beta_h`` bound to a HHChannel.
 """
 beta_h(channel::HHChannel) = channel.beta_h
 
-@doc """
+@doc raw"""
     h_exponent(channel::HHChannel)
 
 Get the exponent of ``h`` in a HHChannel.
@@ -285,7 +284,7 @@ julia> chanK = LaskaML.hh.hhchannel(
 LaskaML.hh.HHChannel{Float64, Int64}("K", 35.0, -77.0, alpha_n, beta_n, 4, alpha_h, beta_h, 0)
 
 julia> LaskaML.hh.parsechannel(chanK)
-"(gK*(m_K^4)*(v-E_K))"
+"-(g_K*(m_K^4)*(v-E_K))"
 ```
 
 """
@@ -293,7 +292,7 @@ function parsechannel(channel::HHChannel)
     i = hh.id(channel)
     m_exp = buildterm("m", i, m_exponent(channel))
     h_exp = buildterm("h", i, h_exponent(channel))
-    "-((g_$(i)*$(m_exp)$(h_exp)(V-E_$(id(channel)))))"
+    "-(g_$(i)*$(m_exp)$(h_exp)(V-E_$(id(channel))))"
 end
 
 # Struct for holding an entire model
@@ -315,7 +314,7 @@ Struct for holding several `HHChannels`, representing an (almost complete) model
 The channels are indexable using `model[i]`.
 
 The struct can be initialized by calling its inner constructor and passing it the channels to be part of the model.
-For convenience, the struct may also be initialized by "adding" `HHChannels` together using the `+` operator. The `+` operator may also be used to add `HHChannel`s to an existing `HHModel`
+For convenience, the `+` operator may be used to add `HHChannel`s to an existing `HHModel`
 
 """
 struct HHModel{G<:Number, V<:Number, P<:Number, Q<:Number}
@@ -330,9 +329,33 @@ struct HHModel{G<:Number, V<:Number, P<:Number, Q<:Number}
 end
 
 
+"""
+    channels(model::HHModel)
+
+Returns a `Vector` containing the `HHChannel`s of the `model`.
+"""
 channels(model::HHModel) = model.channels
+
+
+"""
+    V0(model::HHModel)
+
+Get the initial membrane voltage of `model`.
+"""
 V0(model::HHModel) = model.V_0
+
+"""
+    I0(model::HHModel)
+
+Get the initial membrane current of `model`.
+"""
 I0(model::HHModel) = model.I_0
+
+"""
+    C0(model::HHModel)
+
+Get the initial membrane conductance of `model`.
+"""
 C0(model::HHModel) = model.C_0
 
 # Interface functions for HHModel

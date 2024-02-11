@@ -12,6 +12,11 @@ using Test
     alpha_h(v) = 0.25 * exp((-1.0 * (v + 90.0)) / 12.0)
     beta_h(v) = (0.25 * exp((v + 62.0) / 6.0)) / exp((v + 90.0) / 12.0)
 
+    # Generalized alpha/beta
+
+    alpha_m_K = [0.0, 0.02, -1.0, -25.0, 1.0, -25.0, 9.0]
+    LaskaML.hh.ab_generalized(5.0, alpha_m_K)
+
     # Example potassium channel
     chanK = LaskaML.hh.hhchannel(
         "K",
@@ -57,9 +62,9 @@ using Test
     @test isnothing(LaskaML.hh.h_inf(chanL))
     @test isnothing(LaskaML.hh.m_inf(chanL))
 
-    @test LaskaML.hh.parsechannel(chanK) == "(g_K*(m_K^4)*(v-E_K))"
-    @test LaskaML.hh.parsechannel(chanNa) == "(g_Na*(m_Na^3)*h_Na*(v-E_Na))"
-    @test LaskaML.hh.parsechannel(chanL) == "(g_L*(v-E_L))"
+    @test LaskaML.hh.parsechannel(chanK) == "-(g_K*(m_K^4)*(V-E_K))"
+    @test LaskaML.hh.parsechannel(chanNa) == "-(g_Na*(m_Na^3)*h_Na*(V-E_Na))"
+    @test LaskaML.hh.parsechannel(chanL) == "-(g_L*(V-E_L))"
 
     model = LaskaML.hh.HHModel(
         -60.0,
