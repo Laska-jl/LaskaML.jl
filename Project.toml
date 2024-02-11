@@ -1,7 +1,7 @@
 name = "LaskaML"
 uuid = "d6708ae0-4b55-458f-8870-0c194c171497"
 authors = ["Elias Sjölin <elias.sjolin@gmail.com>"]
-version = "1.0.7-DEV"
+version = "1.0.8-DEV"
 
 [deps]
 LaskaCore = "9ad29ce2-7782-4744-ab48-6ef9cc0286bb"
